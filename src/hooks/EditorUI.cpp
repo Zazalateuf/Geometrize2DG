@@ -28,13 +28,40 @@ class $modify(MyEditorUI, EditorUI) {
 		}
 	}
 
+	CCMenuItemSpriteExtra* createImportButton() {
+		return this->getSpriteButton("geometrize2gd.png"_spr, menu_selector(MyEditorUI::onImgToGD), nullptr, 0.9f);
+	}
+
+	// Since GD 2.2091 the move menu has two modes:
+	//  - D-pad mode: no EditButtonBar is created (m_editButtonBar is null), the edit buttons
+	//    are given to createDpadMoveMenu instead.
+	//  - Classic mode: the buttons are shown in m_editButtonBar.
+#ifndef GEODE_IS_IOS
+	// D-pad mode (this function has no iOS binding, and iOS doesn't use the D-pad)
+	void createDpadMoveMenu(CCArray* buttons) {
+		if (buttons) {
+			if (auto btn = this->createImportButton()) {
+				buttons->addObject(btn);
+			}
+		}
+
+		EditorUI::createDpadMoveMenu(buttons);
+	}
+#endif
+
 	void createMoveMenu() {
 		// Calling the original function
 		EditorUI::createMoveMenu();
 
+		// Classic mode only. In D-pad mode the button was already added in createDpadMoveMenu.
+		if (m_dpadMoveNode || !m_editButtonBar || !m_editButtonBar->m_buttonArray) {
+			return;
+		}
+
 		// Creating custom button and adding it to button array
-		auto* btn = this->getSpriteButton("geometrize2gd.png"_spr, menu_selector(MyEditorUI::onImgToGD), nullptr, 0.9f);
-		m_editButtonBar->m_buttonArray->addObject(btn);
+		if (auto btn = this->createImportButton()) {
+			m_editButtonBar->m_buttonArray->addObject(btn);
+		}
 
 		// Checking settings and updating buttons
 		auto rows = GameManager::sharedState()->getIntGameVariable("0049");
