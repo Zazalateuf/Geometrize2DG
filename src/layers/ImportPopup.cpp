@@ -369,9 +369,8 @@ void ImportPopup::place() {
     // Deleting selected objects
     activeEditorUI->onDeleteSelected(nullptr);
 
-    // Create objects from string and flip Y-axis
+    // Create objects from string (the Y-axis is already flipped by the parser)
     auto objectsArray = activeEditorLayer->createObjectsFromString(this->m_objsString.c_str(), true, true);
-    activeEditorUI->flipObjectsY(objectsArray);
 
     // Add to undo stack and select objects
     activeEditorLayer->m_undoObjects->addObject(UndoObject::createWithArray(objectsArray, UndoCommand::Paste));
