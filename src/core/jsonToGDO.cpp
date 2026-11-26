@@ -5,9 +5,15 @@
 
 #include <algorithm>
 #include <cmath>
+#include <vector>
 
 core::json2gdo::ParseResult core::json2gdo::parse(const matjson::Value &json, ParseOptions options) {
-    geode::utils::StringBuffer<> objsBuf;
+    // Objects are collected first, because the Y axis has to be flipped around the center of
+    // the whole group (EditorUI::flipObjectsY has no macOS binding in GD 2.2091, so it is done here).
+    struct Shape {
+        float x, y, scaleX, scaleY, rotation, h, s, v;
+    };
+    std::vector<Shape> shapes;
     int objsCount = 0;
 
     for (auto obj : json) {
@@ -48,7 +54,8 @@ core::json2gdo::ParseResult core::json2gdo::parse(const matjson::Value &json, Pa
             scaleY = scaleX;
         }
         if (auto rotationResult = obj["data"][4].asDouble()) {
-            rotation = -rotationResult.unwrap();
+            // Rotation is mirrored together with the Y axis, so the original sign is kept
+            rotation = rotationResult.unwrap();
         }
 
         // Parsing colors
@@ -62,11 +69,27 @@ core::json2gdo::ParseResult core::json2gdo::parse(const matjson::Value &json, Pa
             );
         }
 
-        // Parsing objects to gd format and increasing Z Order
+        shapes.push_back(Shape {posX, posY, scaleX, scaleY, rotation, h, s, v});
+    }
+
+    // Flipping the Y axis around the center of the group's bounding box
+    float flipSum = 0.f;
+    if (!shapes.empty()) {
+        float minY = shapes.front().y, maxY = shapes.front().y;
+        for (auto const& shape : shapes) {
+            minY = std::min(minY, shape.y);
+            maxY = std::max(maxY, shape.y);
+        }
+        flipSum = minY + maxY;
+    }
+
+    // Parsing objects to gd format and increasing Z Order
+    geode::utils::StringBuffer<> objsBuf;
+    for (auto const& shape : shapes) {
         objsBuf.append(
             "1,{},2,{},3,{},128,{},129,{},6,{},41,1,42,1,21,1010,22,1010,43,{}a{}a{}a1a1,44,{}a{}a{}a1a1,25,{},372,1;",
-            m_circleID, posX, posY, scaleX, scaleY, rotation,
-            h,s,v, h,s,v, options.zOrderOffset
+            m_circleID, shape.x, flipSum - shape.y, shape.scaleX, shape.scaleY, shape.rotation,
+            shape.h, shape.s, shape.v, shape.h, shape.s, shape.v, options.zOrderOffset
         );
         options.zOrderOffset++;
     }
